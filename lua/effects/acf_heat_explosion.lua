@@ -33,7 +33,7 @@ function EFFECT:Init(Data)
 			Smoke:SetRollDelta(math.Rand(-0.2, 0.2))
 			Smoke:SetAirResistance(300)
 			Smoke:SetGravity(Vector(math.random(-5, 5) * Radius, math.random(-5, 5) * Radius, -450))
-			Smoke:SetColor(160, 160, 160)
+			Smoke:SetColor(111, 55, 55)
 		end
 	end
 

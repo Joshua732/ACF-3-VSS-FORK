@@ -43,4 +43,4 @@ Install a Git client, such as the [Github client](https://desktop.github.com/) o
 
 ## Contributing
 
-Found an annoying bug in the addon? Want to suggest a brand new feature? Think something should be changed? Make sure to check out [Contributing to ACF](CONTRIBUTING.md), where we have a full guide on how to properly contribute to this project.
+If you want to contribute by suggesting, or giving feedback, please hold onto it until some things are set up. No major things have happened yet so the discord is not linked yet.

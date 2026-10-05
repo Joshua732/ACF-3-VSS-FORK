@@ -28,7 +28,7 @@ local function GenerateLinkTable(Entity, Target)
 	local Excessive, Angle = ACF.IsDriveshaftAngleExcessive(Target, Target.In, Entity, Plane)
 	if Excessive then return nil, Angle end
 
-	local Link	= MobilityObj.Link(Entity, Target)
+	local Link = MobilityObj.Link(Entity, Target)
 
 	Link:SetOrigin(OutPos)
 	Link:SetTargetPos(InPos)
@@ -57,10 +57,11 @@ function ENT:ACF_PostUpdateEntityData()
 	self.TargetPitch = 0
 	self.TargetYaw = 0
 
-	self.CQ = 10 				-- Torque coefficient
-	self.CT = 0.025 			-- Force coefficient
-	self.Rho = 1000 			-- Density of water in kg/m^3
-	self.Diameter = Size * 10 * ACF.InchToMeter -- Convert from inches to meters (model is 10u in diameter by default)
+	self.CQ = 10
+	self.CT = 0.025
+	self.ThrustMultiplier = 4
+	self.Rho = 1000
+	self.Diameter = Size * 10 * ACF.InchToMeter
 
 	self.Gearboxes = {}
 end
@@ -102,7 +103,7 @@ end)
 function ENT:UpdateSound(SelfTbl)
 	SelfTbl = SelfTbl or self:GetTable()
 
-	local Path      = self:ACF_GetUserVar("SoundPath")
+	local Path = self:ACF_GetUserVar("SoundPath")
 	local LastSound = SelfTbl.LastSound
 
 	if Path ~= LastSound and LastSound ~= nil then
@@ -127,11 +128,10 @@ end
 function ENT:DestroySound()
 	Sounds.SendAdjustableSound(self, true)
 
-	self.LastSound  = nil
-	self.Sound      = nil
+	self.LastSound = nil
+	self.Sound = nil
 end
 
--- Calculates the required torque for the waterjet to function
 function ENT:Calc(InputRPM)
 	local SelfTbl = self:GetTable()
 
@@ -139,14 +139,13 @@ function ENT:Calc(InputRPM)
 	if not IsValid(SelfTbl.Ancestor) then return 0 end
 
 	local HealthRatio = SelfTbl.ACF.Health / SelfTbl.ACF.MaxHealth
-	local N = InputRPM / (2 * math.pi) -- Rotation rate (Rad/s)
+	local N = InputRPM / (2 * math.pi)
 	local CQ, Rho, D = SelfTbl.CQ, SelfTbl.Rho, SelfTbl.Diameter
-	local Q_req = CQ * Rho * N * N * D * D * D * D -- Required torque to rotate
+	local Q_req = CQ * Rho * N * N * D * D * D * D
 
 	return Q_req / HealthRatio
 end
 
--- Applies torque to the waterjet
 function ENT:Act(Torque, _, MassRatio, FlyRPM)
 	local SelfTbl = self:GetTable()
 	self:SetNW2Float("ACF_WaterjetRPM", FlyRPM)
@@ -155,16 +154,35 @@ function ENT:Act(Torque, _, MassRatio, FlyRPM)
 	if not IsValid(SelfTbl.Ancestor) then return end
 
 	local HealthRatio = SelfTbl.ACF.Health / SelfTbl.ACF.MaxHealth
-	local N = FlyRPM / (2 * math.pi) -- Rotation rate (Rad/s)
+	local N = FlyRPM / (2 * math.pi)
 	local CT, Rho, D = SelfTbl.CT, SelfTbl.Rho, SelfTbl.Diameter
-	local T = CT * Rho * N * N * D * D * D * D -- Force generated
 
-	local Phys = self.AncestorPhys
+	local T =
+		CT *
+		Rho *
+		N *
+		N *
+		D *
+		D *
+		D *
+		D *
+		SelfTbl.ThrustMultiplier
+
+	local Phys = SelfTbl.AncestorPhys
 	local Sign = Torque >= 0 and 1 or -1
-	local Ang = Angle(SelfTbl.Pitch * SelfTbl.ArcPitch, 0, SelfTbl.Yaw * SelfTbl.ArcYaw)
+	local Ang = Angle(
+		SelfTbl.Pitch * SelfTbl.ArcPitch,
+		0,
+		SelfTbl.Yaw * SelfTbl.ArcYaw
+	)
+
 	local Dir = -self:LocalToWorldAngles(Ang):Up()
 
-	Phys:ApplyForceOffset(Dir * T * Sign * MassRatio * HealthRatio, self:GetPos())
+	Phys:ApplyForceOffset(
+		Dir * T * Sign * MassRatio * HealthRatio,
+		self:GetPos()
+	)
+
 	self:UpdateSound(SelfTbl)
 end
 
@@ -176,14 +194,35 @@ function ENT:Think()
 	end
 
 	self:SetNW2Float("ACF_WaterjetRPM", 0)
+
 	local Center = self:GetPos()
-	SelfTbl.InWater = bit.band(util.PointContents(Center), CONTENTS_WATER) == CONTENTS_WATER
 
-	SelfTbl.Pitch = math.Clamp(SelfTbl.Pitch + (SelfTbl.TargetPitch - SelfTbl.Pitch) * SelfTbl.SlewRatePitch * 0.1, -1, 1)
-	SelfTbl.Yaw = math.Clamp(SelfTbl.Yaw + (SelfTbl.TargetYaw - SelfTbl.Yaw) * SelfTbl.SlewRateYaw * 0.1, -1, 1)
+	SelfTbl.InWater =
+		bit.band(
+			util.PointContents(Center),
+			CONTENTS_WATER
+		) == CONTENTS_WATER
 
-	-- Cache ancestor
+	SelfTbl.Pitch = math.Clamp(
+		SelfTbl.Pitch +
+		(SelfTbl.TargetPitch - SelfTbl.Pitch) *
+		SelfTbl.SlewRatePitch *
+		0.1,
+		-1,
+		1
+	)
+
+	SelfTbl.Yaw = math.Clamp(
+		SelfTbl.Yaw +
+		(SelfTbl.TargetYaw - SelfTbl.Yaw) *
+		SelfTbl.SlewRateYaw *
+		0.1,
+		-1,
+		1
+	)
+
 	local Ancestor = self:GetAncestor()
+
 	if IsValid(Ancestor) then
 		SelfTbl.Ancestor = Ancestor
 		SelfTbl.AncestorPhys = Ancestor:GetPhysicsObject()
@@ -195,7 +234,18 @@ function ENT:Think()
 end
 
 function ENT:ACF_UpdateOverlayState(State)
-	State:AddNumber("Scale", self:ACF_GetUserVar("WaterjetSize"))
-	State:AddNumber("Pitch", self.Pitch)
-	State:AddNumber("Yaw", self.Yaw)
+	State:AddNumber(
+		"Scale",
+		self:ACF_GetUserVar("WaterjetSize")
+	)
+
+	State:AddNumber(
+		"Pitch",
+		self.Pitch
+	)
+
+	State:AddNumber(
+		"Yaw",
+		self.Yaw
+	)
 end

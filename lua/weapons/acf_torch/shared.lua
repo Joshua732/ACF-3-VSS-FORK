@@ -41,11 +41,11 @@ SWEP.DrawAmmo = false
 SWEP.DrawCrosshair = true
 SWEP.DrawWeaponInfoBox = false
 SWEP.BounceWeaponIcon = false
-SWEP.MaxDistance = 64 * 64
+SWEP.MaxDistance = 64 * 64 -- Squared distance
+
 
 local function TeslaSpark(pos, magnitude)
 	local zap = ents.Create("point_tesla")
-
 	zap:SetKeyValue("targetname", "teslab")
 	zap:SetKeyValue("m_SoundName", "null")
 	zap:SetKeyValue("texture", "sprites/laser.spr")
@@ -69,8 +69,6 @@ function SWEP:SetupDataTables()
 	self:NetworkVar("Float", 0, "AnimationTime")
 	self:NetworkVar("Int", 1, "AnimPriority")
 	self:NetworkVar("String", 0, "CurrentAnim")
-	self:NetworkVar("Int", 2, "ActionMode")
-	self:NetworkVar("Entity", 0, "TargetEntity")
 end
 
 function SWEP:Initialize()
@@ -84,16 +82,14 @@ function SWEP:Initialize()
 	util.PrecacheSound("items/medshot4.wav")
 	util.PrecacheSound("ambient/energy/zap2.wav")
 
-	self:SetHoldType("pistol")
-	self:SetActionMode(0)
-	self:SetTargetEntity(NULL)
+	self:SetHoldType("pistol") -- "357 hold type doesn't exist, it's the generic pistol one" Kaf
 
 	if CLIENT then return end
 
 	self.LastDistance = 0
-	self.LastTrace = {}
+	self.LastTrace    = {}
 	self.DamageResult = Objects.DamageResult(math.pi * 2 ^ 2, 1)
-	self.DamageInfo = Objects.DamageInfo(self, nil, DMG_PLASMA)
+	self.DamageInfo   = Objects.DamageInfo(self, nil, DMG_PLASMA)
 end
 
 function SWEP:SetAnim(anim, forceplay, animpriority)
@@ -101,57 +97,44 @@ function SWEP:SetAnim(anim, forceplay, animpriority)
 
 	local ViewModel = self:GetOwner():GetViewModel()
 
-	if not IsValid(ViewModel) then return end
+	if not IsValid(ViewModel) then return end -- TODO: Figure out why this could be happening
+	if not animpriority then animpriority = 0 end
 
-	animpriority = animpriority or 0
-
-	local Now = Clock.CurTime
+	local Now    = Clock.CurTime
 	local IsIdle = self:GetCurrentAnim() == "idle01" or self:GetAnimationTime() < Now
 
 	if IsIdle or (forceplay and self:GetAnimPriority() <= animpriority) then
 		self:SetCurrentAnim(anim)
 
-		ViewModel:SendViewModelMatchingSequence(
-			ViewModel:LookupSequence(anim)
-		)
+		ViewModel:SendViewModelMatchingSequence(ViewModel:LookupSequence(anim))
 
-		self:SetAnimationTime(
-			Now + ViewModel:SequenceDuration() / ViewModel:GetPlaybackRate()
-		)
-
+		self:SetAnimationTime(Now + ViewModel:SequenceDuration() / ViewModel:GetPlaybackRate())
 		self:SetAnimPriority(animpriority)
 	end
 end
 
 function SWEP:Deploy()
-	self:SetCurrentAnim("none")
-	self:SetActionMode(0)
-	self:SetTargetEntity(NULL)
+	self:SetCurrentAnim("none") -- Prevents nil anim value
 
 	if CLIENT then
-		Sounds.PlaySound(
-			self,
-			"ambient/energy/zap2.wav",
-			nil,
-			nil,
-			1
-		)
+		Sounds.PlaySound(self, "ambient/energy/zap2.wav", nil, nil, 1)
 	end
 
 	return true
 end
 
+--[[
+-- Temporarily commented out as it's apparently causing errors on some setups.
+function SWEP:Holster()
+	self:SetAnim("holster", true, 1)
+	return true
+end
+]]
+
 function SWEP:Think()
 	local Owner = self:GetOwner()
-
-	if not IsValid(Owner) then return end
-
 	local PlyVel = Owner:GetVelocity():Length()
-	local IsMoving =
-		Owner:KeyDown(IN_FORWARD) or
-		Owner:KeyDown(IN_BACK) or
-		Owner:KeyDown(IN_MOVELEFT) or
-		Owner:KeyDown(IN_MOVERIGHT)
+	local IsMoving = Owner:KeyDown(IN_FORWARD or IN_BACK or IN_MOVELEFT or IN_MOVERIGHT)
 
 	if self:GetAnimationTime() ~= 0 and self:GetAnimationTime() < CurTime() then
 		self:SetAnimationTime(0)
@@ -172,6 +155,7 @@ function SWEP:Think()
 	else
 		local force = false
 
+		-- Force if we were previously walking
 		if self:GetCurrentAnim() ~= "sprint" or self:GetCurrentAnim() ~= "walk" then
 			force = true
 		end
@@ -183,25 +167,9 @@ function SWEP:Think()
 
 	if CLIENT then return end
 
-	local ActionMode = 0
-
-	if Owner:KeyDown(IN_ATTACK) then
-		ActionMode = 1
-	elseif Owner:KeyDown(IN_ATTACK2) then
-		ActionMode = 2
-	end
-
-	self:SetActionMode(ActionMode)
-
 	local Health, MaxHealth, Armor, MaxArmor = 0, 0, 0, 0
-
-	local TraceData = {
-		start = Owner:GetShootPos(),
-		endpos = Owner:GetShootPos() + Owner:GetAimVector() * 64,
-		mask = MASK_SOLID,
-		filter = {Owner}
-	}
-
+	--local Trace = Owner:GetEyeTrace()
+	local TraceData = {start = Owner:GetShootPos(), endpos = Owner:GetShootPos() + Owner:GetAimVector() * 64, mask = MASK_SOLID, filter = {Owner}}
 	local Trace = util.TraceLine(TraceData)
 	local Entity = Trace.Entity
 
@@ -230,16 +198,10 @@ function SWEP:Think()
 		self.LastHealth = Health
 		self.LastArmor = Armor
 
-		self:SetTargetEntity(IsValid(Entity) and Entity or NULL)
-
 		self:SetNWFloat("HP", Health)
 		self:SetNWFloat("MaxHP", MaxHealth)
 		self:SetNWFloat("Armour", Armor)
 		self:SetNWFloat("MaxArmour", MaxArmor)
-	end
-
-	if not IsValid(Entity) then
-		self:SetTargetEntity(NULL)
 	end
 
 	self:NextThink(Clock.CurTime + 0.05)
@@ -248,23 +210,14 @@ end
 function SWEP:PrimaryAttack()
 	local Owner = self:GetOwner()
 
-	self:SetActionMode(1)
-
 	if Owner:KeyPressed(IN_ATTACK) then
 		self:SetAnim("fire_windup", true, 3)
 	end
-
 	self:SetAnim("fire_loop", true, 2)
 	self:SetNextPrimaryFire(Clock.CurTime + 0.05)
 
 	if CLIENT then
-		Sounds.PlaySound(
-			self,
-			Zap:format(math.random(1, 3)),
-			nil,
-			115,
-			1
-		)
+		Sounds.PlaySound(self, Zap:format(math.random(1, 3)), nil, 115, 1)
 
 		return
 	end
@@ -288,33 +241,20 @@ function SWEP:PrimaryAttack()
 		Entity:SetHealth(Health)
 
 		local AngPos = Owner:GetAttachment(4)
-
 		local EffectTable = {
 			Origin = AngPos.Pos + Trace.Normal * 10,
 			Normal = Trace.Normal,
 			Entity = self,
 		}
 
-		Effects.CreateEffect(
-			"thruster_ring",
-			EffectTable,
-			true,
-			true
-		)
+		Effects.CreateEffect("thruster_ring", EffectTable, true, true)
 
+		-- Sound ratelimiting
 		local Time = CurTime()
-
 		self.SoundTimer = self.SoundTimer or Time
 
 		if self.SoundTimer <= Time then
-			Sounds.SendSound(
-				self,
-				"items/medshot4.wav",
-				nil,
-				nil,
-				1
-			)
-
+			Sounds.SendSound(self, "items/medshot4.wav", nil, nil, 1)
 			self.SoundTimer = Time + 0.1
 		end
 	else
@@ -322,10 +262,8 @@ function SWEP:PrimaryAttack()
 		local MaxHealth = Entity.ACF.MaxHealth
 
 		local Now = CurTime()
-
 		if Now - (self.LastUpdate or 0) > 0.5 then
 			self.LastUpdate = Now
-
 			if Entity.ACF_HealthUpdatesWireOverlay then
 				Entity:UpdateOverlay()
 			end
@@ -336,57 +274,27 @@ function SWEP:PrimaryAttack()
 		local OldArmor = Entity.ACF.Armour
 		local MaxArmor = Entity.ACF.MaxArmour
 
-		local Health = math.min(
-			OldHealth + (30 / MaxArmor),
-			MaxHealth
-		)
-
-		local Armor = MaxArmor * (
-			0.5 + Health / MaxHealth * 0.5
-		)
+		local Health = math.min(OldHealth + (30 / MaxArmor), MaxHealth)
+		local Armor = MaxArmor * (0.5 + Health / MaxHealth * 0.5)
 
 		Entity.ACF.Health = Health
 		Entity.ACF.Armour = Armor
 
-		Damage.Network(
-			Entity,
-			_,
-			Health,
-			MaxHealth
-		)
+		Damage.Network(Entity, _, Health, MaxHealth) -- purely to update the damage material on props
 
 		if Entity.ACF_OnRepaired then
-			Entity:ACF_OnRepaired(
-				OldArmor,
-				OldHealth,
-				Armor,
-				Health
-			)
+			Entity:ACF_OnRepaired(OldArmor, OldHealth, Armor, Health)
 		end
 
-		Sounds.SendSound(
-			self,
-			Spark:format(math.random(3, 5)),
-			nil,
-			nil,
-			1
-		)
-
+		Sounds.SendSound(self, Spark:format(math.random(3, 5)), nil, nil, 1)
 		TeslaSpark(Trace.HitPos, 1)
 
+		-- Sound ratelimiting
 		local Time = CurTime()
-
 		self.SoundTimer = self.SoundTimer or Time
 
 		if self.SoundTimer <= Time then
-			Sounds.SendSound(
-				self,
-				Spark:format(math.random(3, 5)),
-				nil,
-				nil,
-				1
-			)
-
+			Sounds.SendSound(self, Spark:format(math.random(3, 5)), nil, nil, 1)
 			self.SoundTimer = Time + 0.1
 		end
 	end
@@ -395,23 +303,14 @@ end
 function SWEP:SecondaryAttack()
 	local Owner = self:GetOwner()
 
-	self:SetActionMode(2)
-
 	if Owner:KeyPressed(IN_ATTACK2) then
 		self:SetAnim("fire_windup", true, 3)
 	end
-
 	self:SetAnim("fire_loop", true, 2)
 	self:SetNextPrimaryFire(Clock.CurTime + 0.05)
 
 	if CLIENT then
-		Sounds.PlaySound(
-			self,
-			Zap:format(math.random(1, 2)),
-			nil,
-			nil,
-			1
-		)
+		Sounds.PlaySound(self, Zap:format(math.random(1, 2)), nil, nil, 1)
 
 		return
 	end
@@ -425,13 +324,11 @@ function SWEP:SecondaryAttack()
 
 	if Entity:IsPlayer() or Entity:IsNPC() or Entity:IsNextBot() then
 		local damageInfo = DamageInfo()
-
 		damageInfo:SetDamage(1)
 		damageInfo:SetAttacker(Owner)
 		damageInfo:SetInflictor(self)
-		damageInfo:SetDamageType(DMG_DISSOLVE)
+		damageInfo:SetDamageType(DMG_DISSOLVE) -- Applies combine ball death effect
 		damageInfo:SetDamagePosition(Trace.HitPos)
-
 		Entity:TakeDamageInfo(damageInfo)
 
 		local EffectTable = {
@@ -440,16 +337,11 @@ function SWEP:SecondaryAttack()
 			Entity = self,
 		}
 
-		Effects.CreateEffect(
-			"BloodImpact",
-			EffectTable,
-			true,
-			true
-		)
+		Effects.CreateEffect("BloodImpact", EffectTable, true, true)
 	else
 		local DmgResult = self.DamageResult
-		local DmgInfo = self.DamageInfo
-		local HitPos = Trace.HitPos
+		local DmgInfo   = self.DamageInfo
+		local HitPos    = Trace.HitPos
 
 		DmgResult:SetThickness(Entity.ACF.Armour)
 
@@ -459,19 +351,10 @@ function SWEP:SecondaryAttack()
 		DmgInfo:SetHitPos(HitPos)
 		DmgInfo:SetHitGroup(Trace.HitGroup)
 
-		local HitRes = Damage.dealDamage(
-			Entity,
-			DmgResult,
-			self.DamageInfo
-		)
+		local HitRes = Damage.dealDamage(Entity, DmgResult, self.DamageInfo)
 
 		if HitRes.Kill then
-			ACF.APKill(
-				Entity,
-				Trace.Normal,
-				1,
-				DmgInfo
-			)
+			ACF.APKill(Entity, Trace.Normal, 1, DmgInfo)
 		else
 			local EffectTable = {
 				Magnitude = 1,
@@ -481,26 +364,14 @@ function SWEP:SecondaryAttack()
 				Origin = HitPos,
 			}
 
-			Effects.CreateEffect(
-				"Sparks",
-				EffectTable,
-				true,
-				true
-			)
+			Effects.CreateEffect("Sparks", EffectTable, true, true)
 
+			-- Sound ratelimiting
 			local Time = CurTime()
-
 			self.SoundTimer = self.SoundTimer or Time
 
 			if self.SoundTimer <= Time then
-				Sounds.SendSound(
-					Entity,
-					Zap:format(math.random(1, 4)),
-					nil,
-					nil,
-					1
-				)
-
+				Sounds.SendSound(Entity, Zap:format(math.random(1, 4)), nil, nil, 1)
 				self.SoundTimer = Time + 0.1
 			end
 		end

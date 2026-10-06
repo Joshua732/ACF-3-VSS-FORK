@@ -59,7 +59,7 @@ function ENT:ACF_PostUpdateEntityData()
 
 	self.CQ = 10
 	self.CT = 0.025
-	self.ThrustMultiplier = 4
+	self.ThrustMultiplier = 1
 	self.Rho = 1000
 	self.Diameter = Size * 10 * ACF.InchToMeter
 

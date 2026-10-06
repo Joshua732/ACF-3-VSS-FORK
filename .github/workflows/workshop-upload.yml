@@ -36,5 +36,4 @@ jobs:
         env:
           STEAM_USERNAME: ${{ secrets.ACFVSS_STEAM_ACCOUNT }}
           STEAM_PASSWORD: ${{ secrets.ACFVSS_STEAM_PASSWORD }}
-          STEAM_GAURD_CODE: ${{ secrets.ACFVSS_STEAM_GAURD_CODE }}
-          
+          STEAM_GUARD_CODE: ${{ secrets.ACFVSS_STEAM_GAURD_CODE }}

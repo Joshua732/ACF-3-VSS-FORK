@@ -1,10 +1,10 @@
 local ACF       = ACF
 local Classes   = ACF.Classes
-
+-- uhhh burn me peepeepls
 Classes.DefineClass("ACF.Ammunition.SM", "ACF.Ammunition.AP", function(CLASS, BASE)
 	CLASS.Name		 = "Smoke"
 	CLASS.SpawnIcon   = "acf/icons/shell_smoke.png"
-	CLASS.Bodygroup   = 6 -- WP bodygroup index
+	CLASS.Bodygroup   = 6 --wp indexa
 	CLASS.MortarBodygroup = 1 -- Smoke mortar submodel
 	CLASS.Description = "#acf.descs.ammo.sm"
 	CLASS.Blacklist = {
@@ -99,6 +99,51 @@ Classes.DefineClass("ACF.Ammunition.SM", "ACF.Ammunition.AP", function(CLASS, BA
 	if SERVER then
 		local Ballistics = ACF.Ballistics
 		local Conversion	= ACF.PointConversion
+		local WPClouds = {}
+
+		local function CreateWPCloud(Bullet, Position)
+			if not Bullet or not isnumber(Bullet.WPMass) or Bullet.WPMass <= 0 then return end
+			if not isvector(Position) then return end
+
+			local WPFiller = math.min(math.log(1 + Bullet.WPMass * 8 * ACF.MeterToInch) * 43.4216, 350)
+			local WPLife = math.Round(5 + WPFiller * 0.1, 2)
+			local WPRadius = WPFiller * 1.25 * 2
+
+			if WPLife <= 0 or WPRadius <= 0 then return end
+
+			WPClouds[#WPClouds + 1] = {
+				Position = Position,
+				Radius = WPRadius,
+				RadiusSqr = WPRadius * WPRadius,
+				EndTime = CurTime() + WPLife
+			}
+		end
+
+		hook.Add("Think", "ACF_SM_WPClouds", function()
+			local Time = CurTime()
+
+			for I = #WPClouds, 1, -1 do
+				local Cloud = WPClouds[I]
+
+				if Time >= Cloud.EndTime then
+					WPClouds[I] = WPClouds[#WPClouds]
+					WPClouds[#WPClouds] = nil
+					continue
+				end
+
+				for _, Ply in ipairs(player.GetAll()) do
+					if IsValid(Ply) and Ply:Alive() then
+						local DistSqr = Ply:GetPos():DistToSqr(Cloud.Position)
+
+						if DistSqr <= Cloud.RadiusSqr then
+							if not Ply:IsOnFire() then
+								Ply:Ignite(1)
+							end
+						end
+					end
+				end
+			end
+		end)
 
 		function CLASS:GetCost(BulletData)
 			return ((BulletData.ProjMass - BulletData.FillerMass - BulletData.WPMass) * Conversion.Steel * 0.75) + (BulletData.PropMass * Conversion.Propellant) + (BulletData.FillerMass * Conversion.SF) + (BulletData.WPMass * Conversion.WP)
@@ -110,7 +155,7 @@ Classes.DefineClass("ACF.Ammunition.SM", "ACF.Ammunition.AP", function(CLASS, BA
 			Entity.FillerRatio  = nil
 			Entity.SmokeWPRatio = nil
 
-			-- Cleanup the leftovers aswell
+			-- kleanup the leftovers aswell
 			Entity.SmokeFiller = nil
 			Entity.WPFiller    = nil
 			Entity.RoundData5  = nil
@@ -143,6 +188,10 @@ Classes.DefineClass("ACF.Ammunition.SM", "ACF.Ammunition.AP", function(CLASS, BA
 		end
 
 		function CLASS:PropImpact(Bullet, Trace)
+			if Bullet.WPMass > 0 then
+				CreateWPCloud(Bullet, Trace.HitPos)
+			end
+
 			if ACF.Check(Trace.Entity) then
 				local Speed  = Bullet.Flight:Length() / ACF.Scale
 				local Energy = ACF.Kinetic(Speed, Bullet.ProjMass)
@@ -158,7 +207,11 @@ Classes.DefineClass("ACF.Ammunition.SM", "ACF.Ammunition.AP", function(CLASS, BA
 			return false
 		end
 
-		function CLASS:WorldImpact()
+		function CLASS:WorldImpact(Bullet, Trace)
+			if Bullet.WPMass > 0 then
+				CreateWPCloud(Bullet, Trace.HitPos)
+			end
+
 			return false
 		end
 	else
@@ -236,4 +289,4 @@ Classes.DefineClass("ACF.Ammunition.SM", "ACF.Ammunition.AP", function(CLASS, BA
 			end)
 		end
 	end
-end)
+end) --hi

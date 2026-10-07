@@ -1,6 +1,9 @@
 local ACF     = ACF
 local Classes = ACF.Classes
 
+-- original location https://github.com/ACF-Team/ACF-Cluster/blob/main/lua/acf/sh_cluster.lua#L14 was here
+-- credits to the two guys taht worked on this a grand total of 1 / 4 years ago
+-- this should be decently balanced though, its limited to one bomb type too.
 Classes.DefineClass("ACF.Missiles.Fuze.Cluster", "ACF.Missiles.Fuze.Optical", function(CLASS, BASE)
 	CLASS.Name = "Cluster"
 	CLASS.MinDistance = 500

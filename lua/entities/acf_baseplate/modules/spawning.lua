@@ -74,6 +74,7 @@ function ENT:ACF_PostSpawn(Owner, _, _, ClientData)
 	ACF.AugmentedTimer(function(cfg) self:UpdateAccuracyMod(cfg) end, function() return IsValid(self) end, nil, {MinTime = 0.1, MaxTime = 0.25})
 	ACF.AugmentedTimer(function(cfg) self:UpdateFuelMod(cfg) end, function() return IsValid(self) end, nil, {MinTime = 0.1, MaxTime = 0.25})
 	ACF.AugmentedTimer(function(cfg) self:EnforceLooped(cfg) end, function() return IsValid(self) end, nil, {MinTime = 0.1, MaxTime = 0.25})
+	ACF.AugmentedTimer(function() self:UpdateWeightLimit() end, function() return IsValid(self) end, nil, {MinTime = 0.5, MaxTime = 1})
 	ACF.ActiveBaseplatesTable[self] = true
 	table.insert(ACF.ActiveBaseplatesArray, self)
 

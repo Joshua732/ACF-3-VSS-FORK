@@ -13,8 +13,10 @@ Armored Combat Framework (ACF) is an addon for Garry's Mod that implements a dam
 Ammunition is customizable with varying ballistic performance along with armor being customizable for protection against various threats. ACF is intended to be balanced for multiplayer and competitive use but there is, of course, nothing wrong with blasting some NPCs.
 
 This is the VSS Fork.
-Please note that, at the current moment, VSS is not on this fork. The most simple reason is cause there is like zero differencnes between this and the main branch. 
-Except the waterjets but that was to experiment and will be undone soon.
+Notice to server owners , i advise against adding this to your server.
+This is entirely just a learning thing for me, experimentation and just having fun on my end, i like doing stuff...
+DO NOT INSTALL THIS UNLESS THIS IS WHAT YOU AND YOUR PLAYERS WANT!!!!
+some parts of this fork will also be forward to suggestions for main acf.
 
 
 ![ACF Logo](acf-logo-dark.png#gh-light-mode-only)

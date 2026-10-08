@@ -111,7 +111,13 @@ Classes.DefineClass("ACF.CrewTypes.Loader", "ACF.CrewTypes.BaseCrewType", functi
 		local Count = table.Count(Crew.Targets)
 		Crew.Focus = (Count > 0) and (1 / Count) or 1
 	end
-	CLASS.EnforceLimits = function(Crew) ACF.EnforceBaseplateType(Crew, ACF.Classes.GetTypeByName("ACF.Baseplates.GroundVehicle")) end
+	CLASS.EnforceLimits = function(Crew)
+		ACF.EnforceBaseplateType(
+			Crew,
+			ACF.Classes.GetTypeByName("ACF.Baseplates.GroundVehicle"),
+			ACF.Classes.GetTypeByName("ACF.Baseplates.NavalVehicle")
+		)
+	end
 end)
 
 Classes.DefineClass("ACF.CrewTypes.Gunner", "ACF.CrewTypes.BaseCrewType", function(CLASS)
@@ -163,7 +169,13 @@ Classes.DefineClass("ACF.CrewTypes.Gunner", "ACF.CrewTypes.BaseCrewType", functi
 	CLASS.UpdateFocus = function(Crew)
 		Crew.Focus = 1
 	end
-	CLASS.EnforceLimits = function(Crew) ACF.EnforceBaseplateType(Crew, ACF.Classes.GetTypeByName("ACF.Baseplates.GroundVehicle")) end
+	CLASS.EnforceLimits = function(Crew)
+		ACF.EnforceBaseplateType(
+			Crew,
+			ACF.Classes.GetTypeByName("ACF.Baseplates.GroundVehicle"),
+			ACF.Classes.GetTypeByName("ACF.Baseplates.NavalVehicle")
+		)
+	end
 end)
 
 Classes.DefineClass("ACF.CrewTypes.Driver", "ACF.CrewTypes.BaseCrewType", function(CLASS)
@@ -208,7 +220,9 @@ Classes.DefineClass("ACF.CrewTypes.Driver", "ACF.CrewTypes.BaseCrewType", functi
 	CLASS.UpdateFocus = function(Crew)
 		Crew.Focus = 1
 	end
-	CLASS.EnforceLimits = function(Crew) ACF.EnforceBaseplateType(Crew, ACF.Classes.GetTypeByName("ACF.Baseplates.GroundVehicle")) end
+	CLASS.EnforceLimits = function(Crew)
+		ACF.EnforceBaseplateType(Crew, ACF.Classes.GetTypeByName("ACF.Baseplates.GroundVehicle"))
+	end
 end)
 
 Classes.DefineClass("ACF.CrewTypes.Commander", "ACF.CrewTypes.BaseCrewType", function(CLASS)

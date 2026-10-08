@@ -24,7 +24,7 @@ ACF.Classes.DefineClass("ACF.Guns.Cannon", "ACF.Guns.BaseScalableGun", function(
 	CLASS.CaliberLimits	= {
 		Base = 100,
 		Min  = 20,
-		Max  = 170,
+		Max  = 300,
 	}
 	CLASS.Sounds 		= {
 		[50] = "acf_base/weapons/ac_fire4.mp3",

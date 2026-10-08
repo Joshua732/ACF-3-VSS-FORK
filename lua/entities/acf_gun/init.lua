@@ -18,6 +18,7 @@ local ACF         	= ACF
 local Contraption 	= ACF.Contraption
 local Classes     	= ACF.Classes
 local Utilities   	= ACF.Utilities
+local Notify      	= Utilities.Notify
 local Clock       	= Utilities.Clock
 local Sounds      	= Utilities.Sounds
 local TimerCreate 	= timer.Create
@@ -33,6 +34,9 @@ local ANGLE   = FindMetaTable("Angle")
 
 local COLOR_RED   = Color(255, 0, 0)
 local COLOR_GREEN = Color(0, 255, 0)
+local CannonType  = Classes.GetTypeByName("ACF.Guns.Cannon")
+local NavalBaseplateType = Classes.GetTypeByName("ACF.Baseplates.NavalVehicle")
+local MAX_GROUND_CANNON_CALIBER = 170
 
 -- Helper functions
 local function UpdateTotalAmmo(Entity)
@@ -386,6 +390,54 @@ do -- Spawn and Update functions --------------------------------
 			or Classes.GetTypeByName("ACF.Guns.Cannon")
 	end
 
+	local function ScheduleCannonCaliberCheck(Entity)
+		if Entity.CannonCaliberCheckPending then return end
+
+		Entity.CannonCaliberCheckPending = true
+
+		local function CheckBaseplate()
+			if not IsValid(Entity) then return end
+			if not Entity.CannonCaliberCheckPending then return end
+
+			local Weapon = Entity:GetWeapon()
+			if not Weapon or not Classes.IsAssignableTo(Weapon:GetType(), CannonType)
+				or (Weapon.Caliber or 0) <= MAX_GROUND_CANNON_CALIBER then
+				Entity.CannonCaliberCheckPending = nil
+				return
+			end
+
+			local Baseplate = ACF.GetEntityBaseplate(Entity)
+			if not IsValid(Baseplate) then
+				timer.Simple(0.25, CheckBaseplate)
+				return
+			end
+
+			local BaseplateType = Baseplate:ACF_GetUserVar("BaseplateType"):GetType()
+			if BaseplateType == NavalBaseplateType then
+				Entity.CannonCaliberCheckPending = nil
+				return
+			end
+
+			Weapon.Caliber = MAX_GROUND_CANNON_CALIBER
+			Entity:ACF_SetUserVar("Caliber", MAX_GROUND_CANNON_CALIBER)
+			Entity.CannonCaliberCheckPending = nil
+
+			local Class = Weapon:GetType()
+			UpdateWeapon(Entity, Entity.ACF_LiveData, Class)
+
+			local Owner = Entity:CPPIGetOwner()
+			if IsValid(Owner) then
+				Notify.WarningToPlayer(
+					Owner,
+					"Cannon caliber restricted",
+					"You must use a Naval baseplate to go past 170 mm caliber."
+				)
+			end
+		end
+
+		timer.Simple(0, CheckBaseplate)
+	end
+
 	-- Spawn-only initialisation (runs before Entity:Spawn(), so the model is ready for physics).
 	function ENT:ACF_PreSpawn(_, _, _, ClientData)
 		self.ACF                = {}
@@ -419,6 +471,8 @@ do -- Spawn and Update functions --------------------------------
 	end
 
 	function ENT:ACF_PostUpdateEntityData()
+		self.CannonCaliberCheckPending = nil
+
 		local Weapon  = self:GetWeapon()
 		local Caliber = self:ACF_GetUserVar("Weapon").Caliber
 
@@ -449,6 +503,11 @@ do -- Spawn and Update functions --------------------------------
 			for Crew in pairs(self.Crews) do
 				self:Unlink(Crew)
 			end
+		end
+
+		if Classes.IsAssignableTo(Weapon:GetType(), CannonType)
+			and (Weapon.Caliber or 0) > MAX_GROUND_CANNON_CALIBER then
+			ScheduleCannonCaliberCheck(self)
 		end
 	end
 
@@ -735,6 +794,7 @@ do -- Metamethods --------------------------------
 
 			local SelfTbl = ENTITY.GetTable(self)
 
+			if SelfTbl.CannonCaliberCheckPending then return false end
 			if not SelfTbl.Firing then return false end -- Nobody is holding the trigger
 			if SelfTbl.Disabled then return false end -- Disabled
 

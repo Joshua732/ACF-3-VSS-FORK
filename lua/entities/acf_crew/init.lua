@@ -250,7 +250,22 @@ do -- Random timer stuff
 		-- Update oxygen levels and apply drowning if necessary
 		local MouthPos = ENTITY.LocalToWorld(self, SelfTbl.CrewModel.MouthOffsetL) -- Probably well underwater at this point
 		-- debugoverlay.Cross(MouthPos, 4, 1, Red, true)
-		if bit.band(util.PointContents(MouthPos), CONTENTS_WATER) == CONTENTS_WATER then
+		local IsUnderwater = bit.band(util.PointContents(MouthPos), CONTENTS_WATER) == CONTENTS_WATER
+		local HasTankOxygen
+
+		if IsUnderwater then
+			for Tank in pairs(SelfTbl.TargetsByType.acf_o2tank or {}) do
+				if not IsValid(Tank) or not Tank.ConsumeOxygen then continue end
+				if not Tank:ConsumeOxygen(DeltaTime * ACF.CrewOxygenLossRate) then continue end
+
+				HasTankOxygen = true
+				break
+			end
+		end
+
+		if HasTankOxygen then
+			SelfTbl.Oxygen = ACF.CrewOxygen
+		elseif IsUnderwater then
 			SelfTbl.Oxygen = SelfTbl.Oxygen - DeltaTime * ACF.CrewOxygenLossRate
 		else
 			SelfTbl.Oxygen = SelfTbl.Oxygen + DeltaTime * ACF.CrewOxygenGainRate
@@ -984,10 +999,14 @@ do
 	-- Compactly define links between crew and other entities
 	local lt = {} -- Merge all crew whitelists
 	for _, CrewTypeClass in ipairs(Classes.GetSubtypesAsList("ACF.CrewTypes.BaseCrewType")) do
-		local LinkHandlers = CrewTypeClass.LinkHandlers
-		if LinkHandlers then for et in pairs(LinkHandlers) do
-			lt[et] = true
-		end end
+		local LinkHandlers = table.Copy(CrewTypeClass.LinkHandlers or {})
+
+		LinkHandlers.acf_o2tank = LinkHandlers.acf_o2tank or {}
+		CrewTypeClass.LinkHandlers = LinkHandlers
+
+		for EntityClass in pairs(LinkHandlers) do
+			lt[EntityClass] = true
+		end
 	end
 
 	for v in pairs(lt) do

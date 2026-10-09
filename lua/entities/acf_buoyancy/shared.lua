@@ -4,6 +4,9 @@ ENT.PrintName     = "ACF Naval Buoyancy Compartment"
 ENT.WireDebugName = "ACF Naval Buoyancy Compartment"
 ENT.PluralName    = "ACF Naval Buoyancy Compartments"
 ENT.ACF_Limit     = 2
+ENT.ACF_StaticWireInputs = {
+	"Buoyancy (%) (Overrides the menu buoyancy setting; 0 to 100.)",
+}
 
 ACF.Entities.AutoRegister(2026100802, function()
 	FIELD("ACF.ContainerShapes.Box", "Shape", {

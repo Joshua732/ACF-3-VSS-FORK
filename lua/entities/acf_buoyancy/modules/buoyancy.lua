@@ -4,6 +4,10 @@ local Notify = ACF.Utilities.Notify
 local NAVAL_BASEPLATE = Classes.GetTypeByName("ACF.Baseplates.NavalVehicle")
 local BUOYANCY_UPDATE_INTERVAL = 0.25
 
+ACF.AddInputAction("acf_buoyancy", "Buoyancy (%)", function(Entity, Value)
+	Entity:SetBuoyancyInput(Value)
+end)
+
 local function GetNavalBaseplate(Entity)
 	local Baseplate = ACF.GetEntityBaseplate(Entity)
 

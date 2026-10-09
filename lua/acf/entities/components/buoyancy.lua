@@ -51,6 +51,8 @@ function ACF.CreateBuoyancyMenu(_, Menu, Context)
 
 	Buoyancy:SetValue(Context:Get("BuoyancyPercent") or 100)
 
+	Menu:AddLabel("Wire input Buoyancy (%) overrides the menu setting from 0 to 100.")
+
 	Menu:AddLabel("Naval Vehicle baseplates only. Maximum 2 per player.")
 
 	if Menu.ComponentPreview then

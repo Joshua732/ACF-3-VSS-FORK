@@ -4,7 +4,7 @@ local Classes = ACF.Classes
 local MODEL = "models/acf/core/s_fuel.mdl"
 
 local function AddSizeSlider(Menu, Context, Label, Field)
-	local Slider = Menu:AddSlider(Label, 6, 70, 0)
+	local Slider = Menu:AddSlider(Label, 6, 120, 0)
 
 	function Slider:OnValueChanged(Value)
 		Value = math.Round(Value)
@@ -29,7 +29,7 @@ function ACF.CreateOxygenTankMenu(_, Menu, Context)
 	AddSizeSlider(Menu, Context, "Width (in)", "OxygenSizeY")
 	AddSizeSlider(Menu, Context, "Height (in)", "OxygenSizeZ")
 
-	Menu:AddLabel("Link this tank to crew members. A maximum-size tank supplies two crew for approximately five minutes underwater.")
+	Menu:AddLabel("Maximum size is 70 in per dimension normally, or 120 in when linked to crew on a Naval Vehicle baseplate. Tanks larger than 70 in increase explosion strength, capped at about 1.7x.")
 
 	if Menu.ComponentPreview then
 		Menu.ComponentPreview:UpdateModel(MODEL, "models/props_canal/metalcrate001d")

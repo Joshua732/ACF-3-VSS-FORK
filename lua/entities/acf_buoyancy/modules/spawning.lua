@@ -56,10 +56,25 @@ function ENT:ACF_PostUpdateEntityData()
 
 	self.BuoyancySize = Size
 	self.CompartmentCount = Count
-	self.BuoyancyPercent = Buoyancy
+	self.ConfiguredBuoyancyPercent = Buoyancy
+	self.BuoyancyPercent = self.BuoyancyInputActive and self.BuoyancyInputValue or Buoyancy
 	self.MaxBuoyancyMass = Volume * (0.0254 ^ 3) * WATER_DENSITY
 
 	ACF.Contraption.SetMass(self, 5000 + Count * 500)
+
+	if self.UpdateOverlay then
+		self:UpdateOverlay()
+	end
+end
+
+function ENT:SetBuoyancyInput(Value)
+	self.BuoyancyInputValue = math.Clamp(tonumber(Value) or 0, 0, 100)
+	self.BuoyancyInputActive = true
+	self.BuoyancyPercent = self.BuoyancyInputValue
+
+	if self.UpdateBuoyancyRatio then
+		self:UpdateBuoyancyRatio()
+	end
 
 	if self.UpdateOverlay then
 		self:UpdateOverlay()

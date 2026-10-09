@@ -251,22 +251,22 @@ do -- Random timer stuff
 		local MouthPos = ENTITY.LocalToWorld(self, SelfTbl.CrewModel.MouthOffsetL) -- Probably well underwater at this point
 		-- debugoverlay.Cross(MouthPos, 4, 1, Red, true)
 		local IsUnderwater = bit.band(util.PointContents(MouthPos), CONTENTS_WATER) == CONTENTS_WATER
-		local HasTankOxygen
+		local OxygenDemand = DeltaTime * ACF.CrewOxygenLossRate
 
 		if IsUnderwater then
 			for Tank in pairs(SelfTbl.TargetsByType.acf_o2tank or {}) do
 				if not IsValid(Tank) or not Tank.ConsumeOxygen then continue end
-				if not Tank:ConsumeOxygen(DeltaTime * ACF.CrewOxygenLossRate) then continue end
 
-				HasTankOxygen = true
-				break
+				OxygenDemand = OxygenDemand - Tank:ConsumeOxygen(OxygenDemand)
+
+				if OxygenDemand <= 0 then break end
 			end
 		end
 
-		if HasTankOxygen then
+		if IsUnderwater and OxygenDemand <= 0 then
 			SelfTbl.Oxygen = ACF.CrewOxygen
 		elseif IsUnderwater then
-			SelfTbl.Oxygen = SelfTbl.Oxygen - DeltaTime * ACF.CrewOxygenLossRate
+			SelfTbl.Oxygen = SelfTbl.Oxygen - OxygenDemand
 		else
 			SelfTbl.Oxygen = SelfTbl.Oxygen + DeltaTime * ACF.CrewOxygenGainRate
 		end
@@ -416,12 +416,19 @@ do -- Random timer stuff
 
 		-- If specified, apply damage to crew based on G forces
 		local Damages = GForceInfo.Damages
-		if Damages and GForce > Damages.Min and SelfTbl.IsAlive then
-			local Damage = ACF.Normalize(GForce, Damages.Min, Damages.Max) * DeltaTime * SampleRate
-			SelfTbl.GForceStrain = SelfTbl.GForceStrain + Damage
-			if SelfTbl.GForceStrain > 1 then
-				local Excess = SelfTbl.GForceStrain - 1 -- "Unmanageable damage"
-				ENT_DamageCrew(self, Excess * SelfTbl.ACF.MaxHealth, "player/pl_fallpain3.wav")
+		if Damages and SelfTbl.IsAlive then
+			local Bonus = SelfTbl.CrewTypeID == "Pilot" and (SelfTbl.OxygenTankGForceBonus or 0) or 0
+			local DamageMin = Damages.Min + Bonus
+			local DamageMax = Damages.Max + Bonus
+
+			if GForce > DamageMin then
+				local Damage = ACF.Normalize(GForce, DamageMin, DamageMax) * DeltaTime * SampleRate
+				SelfTbl.GForceStrain = SelfTbl.GForceStrain + Damage
+
+				if SelfTbl.GForceStrain > 1 then
+					local Excess = SelfTbl.GForceStrain - 1 -- "Unmanageable damage"
+					ENT_DamageCrew(self, Excess * SelfTbl.ACF.MaxHealth, "player/pl_fallpain3.wav")
+				end
 			end
 		end
 
@@ -996,12 +1003,51 @@ do
 		Crew:UpdateOverlay()
 	end
 
+	local function UpdateOxygenTankLink(Crew, Tank)
+		if IsEntityValid(Tank) and Tank.RefreshOxygenTank and not Tank:IsMarkedForDeletion() then
+			Tank:RefreshOxygenTank()
+		end
+
+		if IsEntityValid(Tank) and Tank.UpdateOxygenOutputs then
+			Tank:UpdateOxygenOutputs()
+		end
+
+		if IsEntityValid(Tank) and Tank.UpdateOverlay then
+			Tank:UpdateOverlay()
+		end
+
+		if Crew.UpdateOxygenTankGForceBonus then
+			Crew:UpdateOxygenTankGForceBonus()
+		end
+	end
+
+	function ENT:UpdateOxygenTankGForceBonus()
+		if self.CrewTypeID ~= "Pilot" then
+			self.OxygenTankGForceBonus = 0
+
+			return
+		end
+
+		local Bonus = 0
+
+		for Tank in pairs(self.TargetsByType.acf_o2tank or {}) do
+			if not IsEntityValid(Tank) or not Tank.GetPilotGForceBonus then continue end
+
+			Bonus = math.max(Bonus, Tank:GetPilotGForceBonus())
+		end
+
+		self.OxygenTankGForceBonus = Bonus
+	end
+
 	-- Compactly define links between crew and other entities
 	local lt = {} -- Merge all crew whitelists
 	for _, CrewTypeClass in ipairs(Classes.GetSubtypesAsList("ACF.CrewTypes.BaseCrewType")) do
 		local LinkHandlers = table.Copy(CrewTypeClass.LinkHandlers or {})
 
-		LinkHandlers.acf_o2tank = LinkHandlers.acf_o2tank or {}
+		LinkHandlers.acf_o2tank = {
+			OnLink = UpdateOxygenTankLink,
+			OnUnLink = UpdateOxygenTankLink,
+		}
 		CrewTypeClass.LinkHandlers = LinkHandlers
 
 		for EntityClass in pairs(LinkHandlers) do
